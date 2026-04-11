@@ -633,19 +633,44 @@ input,textarea,select,button{font-family:inherit;}
 </div>
 
 <script>
-const WA = '5588993082921'; // Groaíras, Ceará - MUDE PARA SEU NÚMERO!
-const ADMIN_PASS = 'coxinha2026'; // Senha do Admin - MUDE PARA SUA SENHA!
-const DEFAULT_PIX_KEY = '00997724340'; // Sua chave PIX aqui!
-const DEFAULT_PIX_NAME = 'Arlete Rodrigues Loiola'; // Seu nome aqui!
+const WA = '5588993082921';
+const ADMIN_PASS = 'coxinha2026';
+const DEFAULT_PIX_KEY = '00997724340';
+const DEFAULT_PIX_NAME = 'Arlete Rodrigues Loiola';
 
-// ── PRODUTOS PADRÃO — sempre com orderType correto ──
+// ── FUNÇÕES SEGURAS DE localStorage ──
+// Toda leitura e escrita passa por aqui, com try-catch,
+// evitando que um dado corrompido derrube o app inteiro.
+function lsGet(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw === null || raw === undefined) return fallback;
+    const parsed = JSON.parse(raw);
+    // JSON.parse('null') retorna null — trata como ausente
+    return (parsed === null || parsed === undefined) ? fallback : parsed;
+  } catch(e) {
+    console.warn('[DC] Erro ao ler "' + key + '" do localStorage:', e);
+    return fallback;
+  }
+}
+
+function lsSet(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch(e) {
+    console.warn('[DC] Erro ao salvar "' + key + '" no localStorage:', e);
+    return false;
+  }
+}
+
+// ── PRODUTOS PADRÃO ──
 function defProds(){return[
   {
     id:1, name:'Coxinha (unidade)', emoji:'🍗', price:4.00,
     category:'Coxinhas',
     desc:'Crocante por fora, recheada por dentro. Escolha a quantidade de cada sabor!',
     flavors:['Frango','Queijo','Queijo e Presunto','Pizza','Carne de Sol'],
-    // "multi" = cliente escolhe QUANTAS unidades de CADA sabor quer (soma livre)
     orderType:'multi',
     porcaoTotal:1, loyalty:false, active:true
   },
@@ -654,7 +679,6 @@ function defProds(){return[
     category:'Porções',
     desc:'Porção especial com 10 coxinhas — monte a combinação de sabores que quiser!',
     flavors:['Frango','Queijo','Queijo e Presunto','Pizza','Carne de Sol'],
-    // "porcao" = cliente distribui sabores até completar o total fixo (10)
     orderType:'porcao',
     porcaoTotal:10, loyalty:true, active:true
   },
@@ -669,7 +693,6 @@ function defProds(){return[
     category:'Encomendas',
     desc:'100 coxinhas do sabor de sua escolha. Monte a combinação que quiser.',
     flavors:['Frango','Queijo','Queijo e Presunto','Pizza','Carne de Sol'],
-    // "encomenda" = cliente distribui sabores livremente (sem limite fixo)
     orderType:'encomenda',
     porcaoTotal:100, loyalty:false, active:true
   },
@@ -678,7 +701,6 @@ function defProds(){return[
     category:'Bebidas',
     desc:'Suco natural 250ml — escolha seu sabor favorito!',
     flavors:['Acerola','Maracujá','Goiaba'],
-    // "multi" = cliente escolhe a quantidade de cada sabor
     orderType:'multi',
     porcaoTotal:1, loyalty:false, active:true
   },
@@ -687,7 +709,6 @@ function defProds(){return[
     category:'Bebidas',
     desc:'Refrigerante 250ml — escolha sua marca favorita!',
     flavors:['DelRio Cola','DelRio Guaraná'],
-    // "multi" = cliente escolhe a quantidade de cada sabor
     orderType:'multi',
     porcaoTotal:1, loyalty:false, active:true
   },
@@ -698,10 +719,9 @@ function defCoupons(){return[
   {code:'FRETE5',type:'fixed',value:5,min:20,desc:'R$ 5,00 off em pedidos acima de R$ 20'},
 ];}
 
-// ── CORREÇÃO: migra produtos antigos que tenham orderType errado ──
+// Migra produtos antigos com orderType errado
 function migrateProducts(prods){
   return prods.map(p => {
-    // Se tem sabores e orderType era 'unit', corrige para 'multi'
     if(p.orderType === 'unit' && p.flavors && p.flavors.length > 0){
       p.orderType = 'multi';
     }
@@ -709,46 +729,49 @@ function migrateProducts(prods){
   });
 }
 
-// ── INIT DATA ──
-// Força reset dos produtos padrão para garantir orderType correto
-// (mantém pedidos, estoque, cupons e configurações do usuário)
-let storedProds = JSON.parse(localStorage.getItem('dc_products')||'null');
-// Se os produtos padrão (ids 1-4) existirem, garante orderType correto
+// ── CARREGAMENTO SEGURO DOS DADOS ──
+// Usa lsGet para que qualquer dado corrompido não quebre o app.
+const storedProds = lsGet('dc_products', null);
+
 let products;
-if(!storedProds){
+if (!storedProds) {
+  // Primeira vez — carrega os padrões
   products = defProds();
 } else {
+  // Já havia dados salvos — migra e corrige orderType dos defaults
   products = migrateProducts(storedProds);
-  // Garante que os produtos padrão sempre tenham o orderType correto
-  const defaultMap = {};
-  defProds().forEach(p => defaultMap[p.id] = p.orderType);
+  const defaultOrderTypes = {};
+  defProds().forEach(p => defaultOrderTypes[p.id] = p.orderType);
   products = products.map(p => {
-    if(defaultMap[p.id]) p.orderType = defaultMap[p.id];
+    if (defaultOrderTypes[p.id]) p.orderType = defaultOrderTypes[p.id];
     return p;
   });
 }
 
-let stock    = JSON.parse(localStorage.getItem('dc_stock')||'{}');
-let orders   = JSON.parse(localStorage.getItem('dc_orders')||'[]');
-let coupons  = JSON.parse(localStorage.getItem('dc_coupons')||'null') || defCoupons();
-let loyalty  = JSON.parse(localStorage.getItem('dc_loyalty')||'{"count":0,"usedRewards":0,"rewardPending":false}');
-let pixCfg   = JSON.parse(localStorage.getItem('dc_pix')||'null') || {key:DEFAULT_PIX_KEY,name:DEFAULT_PIX_NAME,qr:''};
-if(!pixCfg.key)  pixCfg.key  = DEFAULT_PIX_KEY;
-if(!pixCfg.name) pixCfg.name = DEFAULT_PIX_NAME;
+let stock   = lsGet('dc_stock',   {});
+let orders  = lsGet('dc_orders',  []);
+let coupons = lsGet('dc_coupons', null) || defCoupons();
+let loyalty = lsGet('dc_loyalty', {count:0, usedRewards:0, rewardPending:false});
+let pixCfg  = lsGet('dc_pix',     null) || {key: DEFAULT_PIX_KEY, name: DEFAULT_PIX_NAME, qr: ''};
+
+// Garante chaves e nome do PIX nunca ficam vazios
+if (!pixCfg.key)  pixCfg.key  = DEFAULT_PIX_KEY;
+if (!pixCfg.name) pixCfg.name = DEFAULT_PIX_NAME;
 
 let cart=[], appliedCoupon=null, pendingItem=null, cartOpen=false, currentStep=1;
-let nextId = Math.max(0,...products.map(p=>p.id))+1;
+let nextId = Math.max(0, ...products.map(p => p.id)) + 1;
 let modalState = {};
 let pixPago = null;
 
+// ── SAVE — usa lsSet para nunca silenciar erros ──
 function save(){
-  localStorage.setItem('dc_products',JSON.stringify(products));
-  localStorage.setItem('dc_stock',JSON.stringify(stock));
-  localStorage.setItem('dc_orders',JSON.stringify(orders));
-  localStorage.setItem('dc_coupons',JSON.stringify(coupons));
-  localStorage.setItem('dc_loyalty',JSON.stringify(loyalty));
-  localStorage.setItem('dc_pix',JSON.stringify(pixCfg));
-  nextId=Math.max(0,...products.map(p=>p.id))+1;
+  lsSet('dc_products', products);
+  lsSet('dc_stock',    stock);
+  lsSet('dc_orders',   orders);
+  lsSet('dc_coupons',  coupons);
+  lsSet('dc_loyalty',  loyalty);
+  lsSet('dc_pix',      pixCfg);
+  nextId = Math.max(0, ...products.map(p => p.id)) + 1;
 }
 
 // ── PAGES ──
@@ -836,7 +859,7 @@ function quickDec(id){
   refreshQA(id);updateCartUI();
 }
 
-// ── MODAL — lógica corrigida com order de prioridade clara ──
+// ── MODAL ──
 function openItem(id){
   const p=products.find(x=>x.id===id);if(!p)return;
   pendingItem=p;
@@ -847,7 +870,6 @@ function openItem(id){
   const ot = p.orderType;
   const hasFlavors = p.flavors && p.flavors.length > 0;
 
-  // ── CASO 1: Porção com total fixo (ex: Porção de 10 coxinhas) ──
   if(ot === 'porcao'){
     const tot = p.porcaoTotal || 10;
     modalState = {type:'porcao', target:tot, flavors:{}};
@@ -874,7 +896,6 @@ function openItem(id){
     return;
   }
 
-  // ── CASO 2: Encomenda (distribui livremente, sem total fixo obrigatório) ──
   if(ot === 'encomenda'){
     const tot = p.porcaoTotal || 100;
     modalState = {type:'encomenda', target:tot, flavors:{}};
@@ -906,7 +927,6 @@ function openItem(id){
     return;
   }
 
-  // ── CASO 3: Multi-sabor livre (ex: Coxinha unitária — escolhe quantas de cada) ──
   if(ot === 'multi' && hasFlavors){
     modalState = {type:'multi', flavors:{}};
     p.flavors.forEach(f => {
@@ -934,7 +954,6 @@ function openItem(id){
     return;
   }
 
-  // ── CASO 4: Sem sabor — só quantidade (unit) ──
   modalState = {type:'unit', qty:1, flavor:''};
   document.getElementById('mSub').textContent = 'Informe a quantidade desejada.';
   document.getElementById('mPrice').textContent = `R$ ${p.price.toFixed(2).replace('.',',')}`;
@@ -1015,7 +1034,6 @@ function confirmModal(){
   } else if(modalState.type==='multi'){
     const tot=Object.values(modalState.flavors).reduce((s,v)=>s+v,0);
     if(tot===0){alert('Adicione pelo menos 1 item!');return;}
-    // Atualiza / adiciona cada sabor no carrinho individualmente
     Object.entries(modalState.flavors).forEach(([f,q])=>{
       const key=p.id+'|'+f;
       const ex=cart.find(c=>c.key===key);
