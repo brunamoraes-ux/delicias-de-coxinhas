@@ -638,15 +638,11 @@ const ADMIN_PASS = 'coxinha2026';
 const DEFAULT_PIX_KEY = '00997724340';
 const DEFAULT_PIX_NAME = 'Arlete Rodrigues Loiola';
 
-// ── FUNÇÕES SEGURAS DE localStorage ──
-// Toda leitura e escrita passa por aqui, com try-catch,
-// evitando que um dado corrompido derrube o app inteiro.
 function lsGet(key, fallback) {
   try {
     const raw = localStorage.getItem(key);
     if (raw === null || raw === undefined) return fallback;
     const parsed = JSON.parse(raw);
-    // JSON.parse('null') retorna null — trata como ausente
     return (parsed === null || parsed === undefined) ? fallback : parsed;
   } catch(e) {
     console.warn('[DC] Erro ao ler "' + key + '" do localStorage:', e);
@@ -664,54 +660,13 @@ function lsSet(key, value) {
   }
 }
 
-// ── PRODUTOS PADRÃO ──
 function defProds(){return[
-  {
-    id:1, name:'Coxinha (unidade)', emoji:'🍗', price:4.00,
-    category:'Coxinhas',
-    desc:'Crocante por fora, recheada por dentro. Escolha a quantidade de cada sabor!',
-    flavors:['Frango','Queijo','Queijo e Presunto','Pizza','Carne de Sol'],
-    orderType:'multi',
-    porcaoTotal:1, loyalty:false, active:true
-  },
-  {
-    id:2, name:'Porção com 10 Coxinhas', emoji:'🧺', price:12.00,
-    category:'Porções',
-    desc:'Porção especial com 10 coxinhas — monte a combinação de sabores que quiser!',
-    flavors:['Frango','Queijo','Queijo e Presunto','Pizza','Carne de Sol'],
-    orderType:'porcao',
-    porcaoTotal:10, loyalty:true, active:true
-  },
-  {
-    id:3, name:'Cento de Salgadinhos', emoji:'🎉', price:40.00,
-    category:'Encomendas',
-    desc:'100 salgadinhos variados com canudinho — ideal para festas!',
-    flavors:[], orderType:'unit', porcaoTotal:100, loyalty:false, active:true
-  },
-  {
-    id:4, name:'Cento só de Coxinha', emoji:'📦', price:38.00,
-    category:'Encomendas',
-    desc:'100 coxinhas do sabor de sua escolha. Monte a combinação que quiser.',
-    flavors:['Frango','Queijo','Queijo e Presunto','Pizza','Carne de Sol'],
-    orderType:'encomenda',
-    porcaoTotal:100, loyalty:false, active:true
-  },
-  {
-    id:5, name:'Suco Natural', emoji:'🧃', price:3.00,
-    category:'Bebidas',
-    desc:'Suco natural 250ml — escolha seu sabor favorito!',
-    flavors:['Acerola','Maracujá','Goiaba'],
-    orderType:'multi',
-    porcaoTotal:1, loyalty:false, active:true
-  },
-  {
-    id:6, name:'Guaraná DelRio', emoji:'🥤', price:3.00,
-    category:'Bebidas',
-    desc:'Refrigerante 250ml — escolha sua marca favorita!',
-    flavors:['DelRio Cola','DelRio Guaraná'],
-    orderType:'multi',
-    porcaoTotal:1, loyalty:false, active:true
-  },
+  {id:1,name:'Coxinha (unidade)',emoji:'🍗',price:4.00,category:'Coxinhas',desc:'Crocante por fora, recheada por dentro. Escolha a quantidade de cada sabor!',flavors:['Frango','Queijo','Queijo e Presunto','Pizza','Carne de Sol'],orderType:'multi',porcaoTotal:1,loyalty:false,active:true},
+  {id:2,name:'Porção com 10 Coxinhas',emoji:'🧺',price:12.00,category:'Porções',desc:'Porção especial com 10 coxinhas — monte a combinação de sabores que quiser!',flavors:['Frango','Queijo','Queijo e Presunto','Pizza','Carne de Sol'],orderType:'porcao',porcaoTotal:10,loyalty:true,active:true},
+  {id:3,name:'Cento de Salgadinhos',emoji:'🎉',price:40.00,category:'Encomendas',desc:'100 salgadinhos variados com canudinho — ideal para festas!',flavors:[],orderType:'unit',porcaoTotal:100,loyalty:false,active:true},
+  {id:4,name:'Cento só de Coxinha',emoji:'📦',price:38.00,category:'Encomendas',desc:'100 coxinhas do sabor de sua escolha. Monte a combinação que quiser.',flavors:['Frango','Queijo','Queijo e Presunto','Pizza','Carne de Sol'],orderType:'encomenda',porcaoTotal:100,loyalty:false,active:true},
+  {id:5,name:'Suco Natural',emoji:'🧃',price:3.00,category:'Bebidas',desc:'Suco natural 250ml — escolha seu sabor favorito!',flavors:['Acerola','Maracujá','Goiaba'],orderType:'multi',porcaoTotal:1,loyalty:false,active:true},
+  {id:6,name:'Guaraná DelRio',emoji:'🥤',price:3.00,category:'Bebidas',desc:'Refrigerante 250ml — escolha sua marca favorita!',flavors:['DelRio Cola','DelRio Guaraná'],orderType:'multi',porcaoTotal:1,loyalty:false,active:true},
 ];}
 
 function defCoupons(){return[
@@ -719,59 +674,45 @@ function defCoupons(){return[
   {code:'FRETE5',type:'fixed',value:5,min:20,desc:'R$ 5,00 off em pedidos acima de R$ 20'},
 ];}
 
-// Migra produtos antigos com orderType errado
 function migrateProducts(prods){
-  return prods.map(p => {
-    if(p.orderType === 'unit' && p.flavors && p.flavors.length > 0){
-      p.orderType = 'multi';
-    }
+  return prods.map(p=>{
+    if(p.orderType==='unit'&&p.flavors&&p.flavors.length>0)p.orderType='multi';
     return p;
   });
 }
 
-// ── CARREGAMENTO SEGURO DOS DADOS ──
-// Usa lsGet para que qualquer dado corrompido não quebre o app.
-const storedProds = lsGet('dc_products', null);
-
+const storedProds=lsGet('dc_products',null);
 let products;
-if (!storedProds) {
-  // Primeira vez — carrega os padrões
-  products = defProds();
-} else {
-  // Já havia dados salvos — migra e corrige orderType dos defaults
-  products = migrateProducts(storedProds);
-  const defaultOrderTypes = {};
-  defProds().forEach(p => defaultOrderTypes[p.id] = p.orderType);
-  products = products.map(p => {
-    if (defaultOrderTypes[p.id]) p.orderType = defaultOrderTypes[p.id];
-    return p;
-  });
+if(!storedProds){
+  products=defProds();
+}else{
+  products=migrateProducts(storedProds);
+  const defaultOrderTypes={};
+  defProds().forEach(p=>defaultOrderTypes[p.id]=p.orderType);
+  products=products.map(p=>{if(defaultOrderTypes[p.id])p.orderType=defaultOrderTypes[p.id];return p;});
 }
 
-let stock   = lsGet('dc_stock',   {});
-let orders  = lsGet('dc_orders',  []);
-let coupons = lsGet('dc_coupons', null) || defCoupons();
-let loyalty = lsGet('dc_loyalty', {count:0, usedRewards:0, rewardPending:false});
-let pixCfg  = lsGet('dc_pix',     null) || {key: DEFAULT_PIX_KEY, name: DEFAULT_PIX_NAME, qr: ''};
+let stock  =lsGet('dc_stock',{});
+let orders =lsGet('dc_orders',[]);
+let coupons=lsGet('dc_coupons',null)||defCoupons();
+let loyalty=lsGet('dc_loyalty',{count:0,usedRewards:0,rewardPending:false});
+let pixCfg =lsGet('dc_pix',null)||{key:DEFAULT_PIX_KEY,name:DEFAULT_PIX_NAME,qr:''};
+if(!pixCfg.key)pixCfg.key=DEFAULT_PIX_KEY;
+if(!pixCfg.name)pixCfg.name=DEFAULT_PIX_NAME;
 
-// Garante chaves e nome do PIX nunca ficam vazios
-if (!pixCfg.key)  pixCfg.key  = DEFAULT_PIX_KEY;
-if (!pixCfg.name) pixCfg.name = DEFAULT_PIX_NAME;
+let cart=[],appliedCoupon=null,pendingItem=null,cartOpen=false,currentStep=1;
+let nextId=Math.max(0,...products.map(p=>p.id))+1;
+let modalState={};
+let pixPago=null;
 
-let cart=[], appliedCoupon=null, pendingItem=null, cartOpen=false, currentStep=1;
-let nextId = Math.max(0, ...products.map(p => p.id)) + 1;
-let modalState = {};
-let pixPago = null;
-
-// ── SAVE — usa lsSet para nunca silenciar erros ──
 function save(){
-  lsSet('dc_products', products);
-  lsSet('dc_stock',    stock);
-  lsSet('dc_orders',   orders);
-  lsSet('dc_coupons',  coupons);
-  lsSet('dc_loyalty',  loyalty);
-  lsSet('dc_pix',      pixCfg);
-  nextId = Math.max(0, ...products.map(p => p.id)) + 1;
+  lsSet('dc_products',products);
+  lsSet('dc_stock',stock);
+  lsSet('dc_orders',orders);
+  lsSet('dc_coupons',coupons);
+  lsSet('dc_loyalty',loyalty);
+  lsSet('dc_pix',pixCfg);
+  nextId=Math.max(0,...products.map(p=>p.id))+1;
 }
 
 // ── PAGES ──
@@ -786,7 +727,10 @@ function showPage(id){
     document.getElementById('loginErr').style.display='none';
   }
   if(id==='admin'){renderCaixa();renderProdAdm();renderCupAdm();loadPixConfig();}
+  // ✅ CORREÇÃO: salva a última página visitada
+  lsSet('dc_lastPage', id);
 }
+
 function renderLoyalty(){
   const c=loyalty.count%10;
   document.getElementById('loyFill').style.width=(c*10)+'%';
@@ -814,13 +758,8 @@ function filterCat(cat,btn){
 }
 
 function typeLabel(p){
-  const labels = {
-    unit: 'Informe a quantidade',
-    multi: 'Escolha quantos de cada sabor',
-    porcao: `Porção de ${p.porcaoTotal} unidades`,
-    encomenda: `Monte sua encomenda (${p.porcaoTotal} un.)`
-  };
-  return labels[p.orderType] || '';
+  const labels={unit:'Informe a quantidade',multi:'Escolha quantos de cada sabor',porcao:`Porção de ${p.porcaoTotal} unidades`,encomenda:`Monte sua encomenda (${p.porcaoTotal} un.)`};
+  return labels[p.orderType]||'';
 }
 
 function itemCard(p){
@@ -866,17 +805,16 @@ function openItem(id){
   document.getElementById('mTitle').textContent=p.name;
   document.getElementById('mConfirmBtn').disabled=false;
   const body=document.getElementById('mBody');
+  const ot=p.orderType;
+  const hasFlavors=p.flavors&&p.flavors.length>0;
 
-  const ot = p.orderType;
-  const hasFlavors = p.flavors && p.flavors.length > 0;
-
-  if(ot === 'porcao'){
-    const tot = p.porcaoTotal || 10;
-    modalState = {type:'porcao', target:tot, flavors:{}};
-    p.flavors.forEach(f => modalState.flavors[f] = 0);
-    document.getElementById('mSub').textContent = `Monte sua porção de ${tot} unidades escolhendo os sabores.`;
-    document.getElementById('mPrice').textContent = `R$ ${p.price.toFixed(2).replace('.',',')} (0/${tot})`;
-    body.innerHTML = `
+  if(ot==='porcao'){
+    const tot=p.porcaoTotal||10;
+    modalState={type:'porcao',target:tot,flavors:{}};
+    p.flavors.forEach(f=>modalState.flavors[f]=0);
+    document.getElementById('mSub').textContent=`Monte sua porção de ${tot} unidades escolhendo os sabores.`;
+    document.getElementById('mPrice').textContent=`R$ ${p.price.toFixed(2).replace('.',',')} (0/${tot})`;
+    body.innerHTML=`
       <div class="porcao-info">
         <div class="porcao-label">Progresso: <span id="porcaoUsed">0</span> / ${tot}</div>
         <div class="porcao-bar-wrap"><div class="porcao-bar-fill" id="porcaoBar" style="width:0%"></div></div>
@@ -891,18 +829,18 @@ function openItem(id){
             <button onclick="porcaoQty('${f.replace(/'/g,"\\'")}', 1)">+</button>
           </div>
         </div>`).join('')}</div>`;
-    document.getElementById('mConfirmBtn').disabled = true;
+    document.getElementById('mConfirmBtn').disabled=true;
     document.getElementById('flavorModal').style.display='flex';
     return;
   }
 
-  if(ot === 'encomenda'){
-    const tot = p.porcaoTotal || 100;
-    modalState = {type:'encomenda', target:tot, flavors:{}};
-    p.flavors.forEach(f => modalState.flavors[f] = 0);
-    document.getElementById('mSub').textContent = `Monte sua encomenda de ${tot} unidades. Distribua os sabores como quiser.`;
-    document.getElementById('mPrice').textContent = `R$ ${p.price.toFixed(2).replace('.',',')} (0/${tot})`;
-    body.innerHTML = `
+  if(ot==='encomenda'){
+    const tot=p.porcaoTotal||100;
+    modalState={type:'encomenda',target:tot,flavors:{}};
+    p.flavors.forEach(f=>modalState.flavors[f]=0);
+    document.getElementById('mSub').textContent=`Monte sua encomenda de ${tot} unidades. Distribua os sabores como quiser.`;
+    document.getElementById('mPrice').textContent=`R$ ${p.price.toFixed(2).replace('.',',')} (0/${tot})`;
+    body.innerHTML=`
       <div class="enc-total-bar">
         <div>
           <div class="enc-target">Total do pedido: ${tot} unidades</div>
@@ -922,24 +860,24 @@ function openItem(id){
           </div>
         </div>`).join('')}
       </div>`;
-    document.getElementById('mConfirmBtn').disabled = true;
+    document.getElementById('mConfirmBtn').disabled=true;
     document.getElementById('flavorModal').style.display='flex';
     return;
   }
 
-  if(ot === 'multi' && hasFlavors){
-    modalState = {type:'multi', flavors:{}};
-    p.flavors.forEach(f => {
-      const inCart = cart.find(c => c.key === p.id+'|'+f);
-      modalState.flavors[f] = inCart ? inCart.qty : 0;
+  if(ot==='multi'&&hasFlavors){
+    modalState={type:'multi',flavors:{}};
+    p.flavors.forEach(f=>{
+      const inCart=cart.find(c=>c.key===p.id+'|'+f);
+      modalState.flavors[f]=inCart?inCart.qty:0;
     });
-    document.getElementById('mSub').textContent = 'Escolha quantas unidades de cada sabor você quer. Pode misturar!';
-    const total = Object.values(modalState.flavors).reduce((s,v)=>s+v,0);
-    document.getElementById('mPrice').textContent = `R$ ${(p.price*total).toFixed(2).replace('.',',')} (${total} un.)`;
-    body.innerHTML = `<div class="fl-multi">${p.flavors.map(f=>{
-      const fid = f.replace(/[^a-zA-Z0-9]/g,'_');
-      const fesc = f.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-      const qty = modalState.flavors[f] || 0;
+    document.getElementById('mSub').textContent='Escolha quantas unidades de cada sabor você quer. Pode misturar!';
+    const total=Object.values(modalState.flavors).reduce((s,v)=>s+v,0);
+    document.getElementById('mPrice').textContent=`R$ ${(p.price*total).toFixed(2).replace('.',',')} (${total} un.)`;
+    body.innerHTML=`<div class="fl-multi">${p.flavors.map(f=>{
+      const fid=f.replace(/[^a-zA-Z0-9]/g,'_');
+      const fesc=f.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      const qty=modalState.flavors[f]||0;
       return`<div class="fl-row">
         <div class="fl-row-name">${f}</div>
         <div class="fl-row-ctrl">
@@ -949,15 +887,15 @@ function openItem(id){
         </div>
       </div>`;
     }).join('')}</div>`;
-    document.getElementById('mConfirmBtn').disabled = total === 0;
+    document.getElementById('mConfirmBtn').disabled=total===0;
     document.getElementById('flavorModal').style.display='flex';
     return;
   }
 
-  modalState = {type:'unit', qty:1, flavor:''};
-  document.getElementById('mSub').textContent = 'Informe a quantidade desejada.';
-  document.getElementById('mPrice').textContent = `R$ ${p.price.toFixed(2).replace('.',',')}`;
-  body.innerHTML = `
+  modalState={type:'unit',qty:1,flavor:''};
+  document.getElementById('mSub').textContent='Informe a quantidade desejada.';
+  document.getElementById('mPrice').textContent=`R$ ${p.price.toFixed(2).replace('.',',')}`;
+  body.innerHTML=`
     <div class="m-qty-row">
       <div class="m-qty-label">Quantidade</div>
       <div class="m-qty-ctrl">
@@ -974,7 +912,6 @@ function unitQty(d){
   document.getElementById('unitQtyVal').textContent=modalState.qty;
   document.getElementById('mPrice').textContent=`R$ ${(pendingItem.price*modalState.qty).toFixed(2).replace('.',',')}`;
 }
-
 function multiQty(f,d){
   if(!modalState.flavors.hasOwnProperty(f))modalState.flavors[f]=0;
   modalState.flavors[f]=Math.max(0,(modalState.flavors[f]||0)+d);
@@ -986,7 +923,6 @@ function updateMultiPrice(){
   document.getElementById('mPrice').textContent=`R$ ${(pendingItem.price*tot).toFixed(2).replace('.',',')} (${tot} un.)`;
   document.getElementById('mConfirmBtn').disabled=tot===0;
 }
-
 function porcaoQty(f,d){
   const cur=modalState.flavors[f]||0;
   const used=Object.values(modalState.flavors).reduce((s,v)=>s+v,0);
@@ -1008,12 +944,10 @@ function updatePorcaoBar(){
   document.getElementById('mPrice').textContent=`R$ ${pendingItem.price.toFixed(2).replace('.',',')} (${used}/${t})`;
   document.getElementById('mConfirmBtn').disabled=used!==t;
 }
-
 function encQty(f,d){
   const cur=modalState.flavors[f]||0;
-  const n=Math.max(0,cur+d);
-  modalState.flavors[f]=n;
-  document.getElementById('eq_'+f.replace(/[^a-zA-Z0-9]/g,'_')).textContent=n;
+  modalState.flavors[f]=Math.max(0,cur+d);
+  document.getElementById('eq_'+f.replace(/[^a-zA-Z0-9]/g,'_')).textContent=modalState.flavors[f];
   updateEncTotal();
 }
 function updateEncTotal(){
@@ -1022,49 +956,37 @@ function updateEncTotal(){
   document.getElementById('mPrice').textContent=`R$ ${pendingItem.price.toFixed(2).replace('.',',')} (${used}/${modalState.target})`;
   document.getElementById('mConfirmBtn').disabled=used===0;
 }
-
 function confirmModal(){
   if(!pendingItem)return;
   const p=pendingItem;
   let items=[];
-
   if(modalState.type==='unit'){
     items.push({key:p.id+'|unit_'+Date.now(),id:p.id,name:p.name,emoji:p.emoji,flavor:'',price:p.price,qty:modalState.qty,loyalty:p.loyalty||false});
-
-  } else if(modalState.type==='multi'){
+  }else if(modalState.type==='multi'){
     const tot=Object.values(modalState.flavors).reduce((s,v)=>s+v,0);
     if(tot===0){alert('Adicione pelo menos 1 item!');return;}
     Object.entries(modalState.flavors).forEach(([f,q])=>{
       const key=p.id+'|'+f;
       const ex=cart.find(c=>c.key===key);
-      if(q>0){
-        if(ex) ex.qty=q;
-        else cart.push({key,id:p.id,name:p.name,emoji:p.emoji,flavor:f,price:p.price,qty:q,loyalty:p.loyalty||false});
-      } else {
-        const idx=cart.findIndex(c=>c.key===key);
-        if(idx>=0) cart.splice(idx,1);
-      }
+      if(q>0){if(ex)ex.qty=q;else cart.push({key,id:p.id,name:p.name,emoji:p.emoji,flavor:f,price:p.price,qty:q,loyalty:p.loyalty||false});}
+      else{const idx=cart.findIndex(c=>c.key===key);if(idx>=0)cart.splice(idx,1);}
     });
     refreshQA(p.id);closeModal();updateCartUI();openCart();
     return;
-
-  } else if(modalState.type==='porcao'){
+  }else if(modalState.type==='porcao'){
     const used=Object.values(modalState.flavors).reduce((s,v)=>s+v,0);
     if(used!==modalState.target){alert(`Preencha exatamente ${modalState.target} unidades.`);return;}
     const flavorDesc=Object.entries(modalState.flavors).filter(([,q])=>q>0).map(([f,q])=>`${q}× ${f}`).join(', ');
     items.push({key:p.id+'|porcao_'+Date.now(),id:p.id,name:p.name,emoji:p.emoji,flavor:flavorDesc,price:p.price,qty:1,loyalty:p.loyalty||false,isPorcao:true});
-
-  } else if(modalState.type==='encomenda'){
+  }else if(modalState.type==='encomenda'){
     const used=Object.values(modalState.flavors).reduce((s,v)=>s+v,0);
     if(used===0){alert('Monte o pedido!');return;}
     const flavorDesc=Object.entries(modalState.flavors).filter(([,q])=>q>0).map(([f,q])=>`${q}× ${f}`).join(', ');
     items.push({key:p.id+'|enc_'+Date.now(),id:p.id,name:p.name+` (${used} un.)`,emoji:p.emoji,flavor:flavorDesc,price:p.price,qty:1,loyalty:p.loyalty||false,isEncomenda:true,encQty:used});
   }
-
   items.forEach(it=>{
     const ex=cart.find(c=>c.key===it.key&&!it.isPorcao&&!it.isEncomenda&&it.key.indexOf('unit_')<0);
-    if(ex)ex.qty+=it.qty;
-    else cart.push(it);
+    if(ex)ex.qty+=it.qty;else cart.push(it);
   });
   refreshQA(p.id);closeModal();updateCartUI();openCart();
 }
@@ -1097,31 +1019,24 @@ function calcTotals(){
   const total=Math.max(0,sub-disc-freeVal);
   return{sub,disc,freeVal,total,freeCombo};
 }
-
 function renderCart(){
   const body=document.getElementById('cdBody');
   const summary=document.getElementById('cdSummary');
   const area=document.getElementById('checkoutArea');
   const waFooter=document.getElementById('waFooter');
-
   if(!cart.length){
     body.innerHTML=`<div class="empty-cart"><div class="ec-icon">🛒</div>Seu carrinho está vazio.<br><small style="color:var(--muted2)">Adicione itens do cardápio</small></div>`;
-    summary.style.display='none';
-    area.style.display='none';
+    summary.style.display='none';area.style.display='none';
     waFooter.innerHTML=`<button class="btn-wa-menu" onclick="closeCart();showPage('menu')">Ver Cardápio 🍗</button>`;
     return;
   }
-
-  area.style.display='flex';
-  area.style.flexDirection='column';
-  summary.style.display='block';
-
+  area.style.display='flex';area.style.flexDirection='column';summary.style.display='block';
   body.innerHTML=cart.map(c=>`
     <div class="ci">
       <div class="ci-emoji">${c.emoji}</div>
       <div class="ci-info">
         <div class="ci-name">${c.name}</div>
-        ${c.flavor?`<div class="ci-flavor">${c.isPorcao||c.isEncomenda?'Sabores: ':''} ${c.flavor}</div>`:''}
+        ${c.flavor?`<div class="ci-flavor">${c.isPorcao||c.isEncomenda?'Sabores: ':''}${c.flavor}</div>`:''}
         ${!c.isPorcao&&!c.isEncomenda?`<div class="ci-ctrl">
           <button onclick="ciQ('${c.key}',-1)">−</button>
           <span>${c.qty}</span>
@@ -1134,7 +1049,6 @@ function renderCart(){
         <button class="ci-del" onclick="rmItem('${c.key}')">🗑</button>
       </div>
     </div>`).join('');
-
   const{sub,disc,freeVal,total,freeCombo}=calcTotals();
   let html='';
   if(freeCombo)html+=`<div class="reward-banner">🎁 Você ganhou 1 combo grátis pelo programa de fidelidade!</div>`;
@@ -1143,34 +1057,26 @@ function renderCart(){
   if(freeVal>0)html+=`<div class="sum-row"><span class="sum-label">Brinde fidelidade</span><span class="sum-val sum-disc">− R$ ${freeVal.toFixed(2).replace('.',',')}</span></div>`;
   html+=`<div class="sum-divider"></div><div class="sum-row"><span class="sum-label" style="color:var(--text);font-weight:700;font-size:1rem">Total</span><span class="sum-val sum-total">R$ ${total.toFixed(2).replace('.',',')}</span></div>`;
   summary.innerHTML=html;
-
   const lb=document.getElementById('loyRewardBanner');
   if(lb)lb.style.display=freeCombo?'flex':'none';
-
   updateWaFooter();
 }
-
 function updateWaFooter(){
   const waFooter=document.getElementById('waFooter');
-  if(!cart.length){
-    waFooter.innerHTML=`<button class="btn-wa-menu" onclick="closeCart();showPage('menu')">Ver Cardápio 🍗</button>`;
-    return;
-  }
+  if(!cart.length){waFooter.innerHTML=`<button class="btn-wa-menu" onclick="closeCart();showPage('menu')">Ver Cardápio 🍗</button>`;return;}
   if(currentStep===3){
     waFooter.innerHTML=`<button class="btn-wa" onclick="sendOrder()">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
       Enviar Pedido via WhatsApp
     </button>`;
-  } else {
+  }else{
     const stepLabel=['','Informar entrega →','Cupom de desconto →','Escolher pagamento →'];
     waFooter.innerHTML=`<button class="btn-wa-menu" onclick="goStep(${currentStep+1<=3?currentStep+1:3})">${stepLabel[currentStep]||'Continuar →'}</button>`;
   }
 }
-
 function ciQ(key,d){
   const i=cart.findIndex(c=>c.key===key);if(i<0)return;
-  cart[i].qty+=d;
-  const id=cart[i].id;
+  cart[i].qty+=d;const id=cart[i].id;
   if(cart[i].qty<=0)cart.splice(i,1);
   refreshQA(id);updateCartUI();
 }
@@ -1202,7 +1108,6 @@ function goStep(n){
   }
   updateWaFooter();
 }
-
 function selPay(el,v){
   document.querySelectorAll('.pay-opt').forEach(o=>o.classList.remove('selected'));
   el.classList.add('selected');
@@ -1235,20 +1140,17 @@ function setPixPago(v){
   document.getElementById('pixBtnSim').classList.toggle('sel',v===true);
   document.getElementById('pixBtnNao').classList.toggle('sel',v===false);
 }
-
 function validateTroco(){
-  const {total}=calcTotals();
+  const{total}=calcTotals();
   const trocoEl=document.getElementById('trocoVal');
   const errEl=document.getElementById('trocoError');
   const val=parseFloat(trocoEl.value);
   if(trocoEl.value===''||isNaN(val)){errEl.style.display='none';return true;}
   if(val<=total){
     errEl.textContent=`⚠️ O troco deve ser maior que o total (R$ ${total.toFixed(2).replace('.',',')}).`;
-    errEl.style.display='block';
-    return false;
+    errEl.style.display='block';return false;
   }
-  errEl.style.display='none';
-  return true;
+  errEl.style.display='none';return true;
 }
 
 // ── COUPON ──
@@ -1275,11 +1177,9 @@ function sendOrder(){
   const pay=document.querySelector('input[name="pay"]:checked')?.value||'dinheiro';
   const troco=pay==='dinheiro'?document.getElementById('trocoVal').value:'';
   if(pay==='dinheiro'&&troco){if(!validateTroco()){alert('O valor do troco deve ser maior que o total do pedido!');return;}}
-
   const{sub,disc,freeVal,total,freeCombo}=calcTotals();
   const oid='P'+Date.now().toString().slice(-5);
   const now=new Date();
-
   let msg=`🍗 *NOVO PEDIDO — ${oid}*\n━━━━━━━━━━━━━━━━━━━━\n`;
   msg+=`👤 *Cliente:* ${name}\n`;
   if(phone)msg+=`📞 *Fone:* ${phone}\n`;
@@ -1301,12 +1201,11 @@ function sendOrder(){
     if(pixPago===true)msg+=`✅ *PIX JÁ PAGO pelo cliente!*\n`;
     else if(pixPago===false)msg+=`⏳ *PIX AINDA NÃO PAGO — aguardando pagamento*\n`;
     else msg+=`❓ *PIX — Status de pagamento não informado*\n`;
-  } else if(pay==='dinheiro'){
+  }else if(pay==='dinheiro'){
     msg+=`💳 *Pagamento:* Dinheiro${troco?` (troco p/ R$ ${parseFloat(troco||0).toFixed(2).replace('.',',')})`:''}  \n`;
-  } else {
+  }else{
     msg+=`💳 *Pagamento:* Cartão na entrega\n`;
   }
-
   const comboQty=cart.filter(c=>c.loyalty).reduce((s,c)=>s+c.qty,0);
   if(comboQty>0||freeCombo){
     if(comboQty>0)loyalty.count=(loyalty.count||0)+comboQty;
@@ -1332,7 +1231,7 @@ function adminLogin(){
     document.getElementById('adminPass').value='';
     err.style.display='none';
     showPage('admin');
-  } else {
+  }else{
     err.style.display='block';
     document.getElementById('adminPass').value='';
     document.getElementById('adminPass').focus();
@@ -1530,6 +1429,17 @@ function loadPixConfig(){
 renderMenu();
 renderLoyalty();
 updateCartUI();
+
+// ✅ CORREÇÃO: restaura a última página visitada ao dar F5
+(function(){
+  const lastPage = lsGet('dc_lastPage', 'menu');
+  // Admin sempre exige senha novamente por segurança
+  if(lastPage === 'admin'){
+    showPage('admin-gate');
+  } else if(lastPage && lastPage !== 'menu'){
+    showPage(lastPage);
+  }
+})();
 </script>
 </body>
 </html>
