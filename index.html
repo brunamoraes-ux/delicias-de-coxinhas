@@ -700,7 +700,7 @@ let pixCfg =lsGet('dc_pix',null)||{key:DEFAULT_PIX_KEY,name:DEFAULT_PIX_NAME,qr:
 if(!pixCfg.key)pixCfg.key=DEFAULT_PIX_KEY;
 if(!pixCfg.name)pixCfg.name=DEFAULT_PIX_NAME;
 
-let cart=[],appliedCoupon=null,pendingItem=null,cartOpen=false,currentStep=1;
+let cart=lsGet('dc_cart',[]),appliedCoupon=lsGet('dc_coupon',null),pendingItem=null,cartOpen=false,currentStep=1;
 let nextId=Math.max(0,...products.map(p=>p.id))+1;
 let modalState={};
 let pixPago=null;
@@ -713,6 +713,11 @@ function save(){
   lsSet('dc_loyalty',loyalty);
   lsSet('dc_pix',pixCfg);
   nextId=Math.max(0,...products.map(p=>p.id))+1;
+}
+
+function saveCart(){
+  lsSet('dc_cart',cart);
+  lsSet('dc_coupon',appliedCoupon);
 }
 
 // ── PAGES ──
@@ -795,7 +800,7 @@ function quickDec(id){
   const last=entries[entries.length-1];
   last.qty--;
   if(last.qty<=0)cart.splice(cart.indexOf(last),1);
-  refreshQA(id);updateCartUI();
+  refreshQA(id);updateCartUI();saveCart();
 }
 
 // ── MODAL ──
@@ -971,7 +976,7 @@ function confirmModal(){
       if(q>0){if(ex)ex.qty=q;else cart.push({key,id:p.id,name:p.name,emoji:p.emoji,flavor:f,price:p.price,qty:q,loyalty:p.loyalty||false});}
       else{const idx=cart.findIndex(c=>c.key===key);if(idx>=0)cart.splice(idx,1);}
     });
-    refreshQA(p.id);closeModal();updateCartUI();openCart();
+    refreshQA(p.id);closeModal();updateCartUI();saveCart();openCart();
     return;
   }else if(modalState.type==='porcao'){
     const used=Object.values(modalState.flavors).reduce((s,v)=>s+v,0);
@@ -988,7 +993,7 @@ function confirmModal(){
     const ex=cart.find(c=>c.key===it.key&&!it.isPorcao&&!it.isEncomenda&&it.key.indexOf('unit_')<0);
     if(ex)ex.qty+=it.qty;else cart.push(it);
   });
-  refreshQA(p.id);closeModal();updateCartUI();openCart();
+  refreshQA(p.id);closeModal();updateCartUI();saveCart();openCart();
 }
 function closeModal(){document.getElementById('flavorModal').style.display='none';pendingItem=null;}
 
@@ -1078,12 +1083,12 @@ function ciQ(key,d){
   const i=cart.findIndex(c=>c.key===key);if(i<0)return;
   cart[i].qty+=d;const id=cart[i].id;
   if(cart[i].qty<=0)cart.splice(i,1);
-  refreshQA(id);updateCartUI();
+  refreshQA(id);updateCartUI();saveCart();
 }
 function rmItem(key){
   const c=cart.find(x=>x.key===key);
   if(c){cart.splice(cart.indexOf(c),1);refreshQA(c.id);}
-  updateCartUI();
+  updateCartUI();saveCart();
 }
 
 // ── STEPS ──
@@ -1164,7 +1169,7 @@ function applyCoupon(){
   appliedCoupon=found;
   const discStr=found.type==='percent'?`${found.value}%`:`R$ ${found.value.toFixed(2).replace('.',',')}`;
   msg.innerHTML=`<span class="ok">✅ Cupom aplicado! Desconto de ${discStr}</span>`;
-  renderCart();
+  renderCart();saveCart();
 }
 
 // ── SEND ORDER ──
@@ -1216,7 +1221,7 @@ function sendOrder(){
   }
   orders.unshift({id:oid,client:name,phone,address:addr,items:[...cart],sub,disc,freeVal,total,payment:pay,troco,pixPago,date:now.toISOString(),status:'new'});
   save();
-  cart=[];appliedCoupon=null;pixPago=null;currentStep=1;
+  cart=[];appliedCoupon=null;pixPago=null;currentStep=1;saveCart();
   updateCartUI();renderCart();closeCart();
   document.getElementById('couponInput').value='';
   document.getElementById('couponMsg').innerHTML='';
